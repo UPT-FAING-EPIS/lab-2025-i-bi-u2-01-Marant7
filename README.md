@@ -4,6 +4,8 @@
 
 ### Nombre:
 
+  * Mario Antonio Flores Ramos
+
 ## OBJETIVOS
   * Realizar el diseño multidimensional de escenarios de negocios con base de datos .
 
