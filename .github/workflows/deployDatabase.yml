@@ -9,7 +9,7 @@ on:
 
 env:
   DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
-  DB_USER: "${{ secrets.SQL_USER }}"
+  DB_USER: "${{ secrets.SQL_USER }}@${{ secrets.AZURE_SQL_SERVER }}"  # Formato correcto usuario@servidor
   DB_PASSWORD: "${{ secrets.SQL_PASS }}"
   LIQUIBASE_VERSION: "4.27.0"
 
@@ -34,22 +34,30 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Liquibase manually
+      - name: Install SQLCMD for verification
         run: |
-          # Descargar y extraer Liquibase
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools
+          echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> $HOME/.bashrc
+          source $HOME/.bashrc
+
+      - name: Verify database connection
+        run: |
+          if ! sqlcmd -S "${{ env.DB_SERVER }}" -U "${{ env.DB_USER }}" -P "${{ env.DB_PASSWORD }}" -d "master" -Q "SELECT 1" -l 30; then
+            echo "::error::Failed to connect to SQL Server"
+            exit 1
+          fi
+
+      - name: Install Liquibase
+        run: |
           wget https://github.com/liquibase/liquibase/releases/download/v${{ env.LIQUIBASE_VERSION }}/liquibase-${{ env.LIQUIBASE_VERSION }}.tar.gz -O /tmp/liquibase.tar.gz
           sudo mkdir -p /opt/liquibase
           sudo tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
           sudo ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
-          
-          # Descargar driver JDBC para SQL Server
           wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O /tmp/sqljdbc.jar
           echo "LIQUIBASE_CLASSPATH=/tmp/sqljdbc.jar" >> $GITHUB_ENV
-
-      - name: Verify Liquibase installation
-        run: |
-          liquibase --version
-          ls -la /opt/liquibase
 
       - name: Apply database changes
         run: |
@@ -60,5 +68,5 @@ jobs:
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
             --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
             --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
-            --logLevel=info \
+            --logLevel=debug \
             update
