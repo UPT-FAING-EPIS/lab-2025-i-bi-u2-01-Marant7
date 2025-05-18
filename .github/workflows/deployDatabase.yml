@@ -9,8 +9,8 @@ on:
 
 env:
   DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
-  DB_USER: "${{ secrets.AZURE_SQL_USER }}"
-  DB_PASSWORD: "${{ secrets.AZURE_SQL_PASSWORD }}"
+  DB_USER: "${{ secrets.SQL_USER }}"
+  DB_PASSWORD: "${{ secrets.SQL_PASSWORD }}"
   LIQUIBASE_VERSION: "4.27.0"
 
 jobs:
