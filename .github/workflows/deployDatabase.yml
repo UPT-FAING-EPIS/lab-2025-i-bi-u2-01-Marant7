@@ -9,7 +9,7 @@ on:
 
 env:
   DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
-  DB_USER: "${{ secrets.SQL_USER }}@${{ secrets.AZURE_SQL_SERVER }}"  # Formato correcto usuario@servidor
+  DB_USER: "${{ secrets.SQL_USER }}@${{ secrets.AZURE_SQL_SERVER }}"  # Formato usuario@servidor
   DB_PASSWORD: "${{ secrets.SQL_PASS }}"
   LIQUIBASE_VERSION: "4.27.0"
 
@@ -34,12 +34,22 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install SQLCMD for verification
+      - name: Install SQLCMD (alternative method)
         run: |
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          # Descargar directamente los paquetes .deb para Ubuntu 22.04 (compatibles)
+          wget https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/msodbcsql18/msodbcsql18_18.3.2.1-1_amd64.deb -O /tmp/msodbcsql18.deb
+          wget https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/mssql-tools/mssql-tools_18.3.1.1-1_amd64.deb -O /tmp/mssql-tools.deb
+          
+          # Instalar dependencias
           sudo apt-get update
-          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools
+          sudo apt-get install -y unixodbc-dev
+          
+          # Instalar los paquetes descargados
+          sudo dpkg -i /tmp/msodbcsql18.deb
+          sudo dpkg -i /tmp/mssql-tools.deb
+          sudo apt-get install -f -y
+          
+          # Configurar PATH
           echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> $HOME/.bashrc
           source $HOME/.bashrc
 
