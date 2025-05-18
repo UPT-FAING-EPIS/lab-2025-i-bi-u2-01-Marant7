@@ -1,88 +1,57 @@
-name: Deploy Database Schemas
+name: Deploy Dimensional Models with Liquibase
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
     paths:
       - 'liquibase/**'
-      - '.github/workflows/deployDatabase.yml'
+      - '.github/workflows/deploy-liquibase.yml'
 
 env:
-  DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
-  DB_USER: "${{ secrets.SQL_USER }}@${{ secrets.AZURE_SQL_SERVER }}"  # Formato usuario@servidor
-  DB_PASSWORD: "${{ secrets.SQL_PASS }}"
+  DB_SERVER: "${{ secrets.DB_SERVER }}"  # Ej: 'tu-server.database.windows.net'
+  DB_USER: "${{ secrets.SQL_ADMIN_USER }}"
+  DB_PASSWORD: "${{ secrets.SQL_ADMIN_PASSWORD }}"
 
 jobs:
-  deploy-dimensional-models:
-    name: Deploy Dimensional Models
+  deploy-schemas:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        model:
-          - { folder: 'modelo01', db_name: 'dw_envios', sql_file: 'modelo01_envios.sql' }
-          - { folder: 'modelo02', db_name: 'dw_reservas_viaje', sql_file: 'modelo02_reservas.sql' }
-          - { folder: 'modelo03', db_name: 'dw_gestion_proyectos', sql_file: 'modelo03_proyectos.sql' }
+        model_config:
+          - { model: 'modelo01', db_name: 'dw_envios', sql_file: 'modelo01_envios.sql' }
+          - { model: 'modelo02', db_name: 'dw_reservas_viaje', sql_file: 'modelo02_reservas.sql' }
+          - { model: 'modelo03', db_name: 'dw_gestion_proyectos', sql_file: 'modelo03_proyectos.sql' }
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Java
+      - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install SQLCMD and dependencies
+      - name: Install Liquibase and SQL Server driver
         run: |
-          # Instalar herramientas para SQL Server
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
-          sudo apt-get update
-          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
-          echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> $HOME/.bashrc
-          source $HOME/.bashrc
-
-      - name: Create database if not exists
-        run: |
-          # Verificar y crear la BD si no existe
-          /opt/mssql-tools/bin/sqlcmd \
-            -S "${{ env.DB_SERVER }}" \
-            -U "${{ env.DB_USER }}" \
-            -P "${{ env.DB_PASSWORD }}" \
-            -d "master" \
-            -Q "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${{ matrix.model.db_name }}') CREATE DATABASE ${{ matrix.model.db_name }};"
-
-      - name: Grant user permissions
-        run: |
-          # Otorgar permisos al usuario
-          /opt/mssql-tools/bin/sqlcmd \
-            -S "${{ env.DB_SERVER }}" \
-            -U "${{ env.DB_USER }}" \
-            -P "${{ env.DB_PASSWORD }}" \
-            -d "master" \
-            -Q "USE [${{ matrix.model.db_name }}]; CREATE USER [${{ secrets.SQL_USER }}] FROM LOGIN [${{ secrets.SQL_USER }}]; ALTER ROLE db_owner ADD MEMBER [${{ secrets.SQL_USER }}];"
-
-      - name: Install Liquibase
-        run: |
-          # Instalar Liquibase manualmente
-          wget https://github.com/liquibase/liquibase/releases/download/v4.27.0/liquibase-4.27.0.tar.gz -O /tmp/liquibase.tar.gz
-          sudo mkdir -p /opt/liquibase
-          sudo tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
-          sudo ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
+          # Descargar y extraer Liquibase
+          curl -L https://github.com/liquibase/liquibase/releases/download/v4.23.1/liquibase-4.23.1.tar.gz -o liquibase.tar.gz
+          mkdir liquibase
+          tar -xzf liquibase.tar.gz -C liquibase
+          echo "$(pwd)/liquibase" >> $GITHUB_PATH
           
-          # Instalar driver JDBC
-          wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O /tmp/sqljdbc.jar
-          echo "LIQUIBASE_CLASSPATH=/tmp/sqljdbc.jar" >> $GITHUB_ENV
+          # Descargar driver JDBC para SQL Server
+          wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O sqljdbc.jar
+          echo "LIQUIBASE_CLASSPATH=$(pwd)/sqljdbc.jar" >> $GITHUB_ENV
 
-      - name: Apply database changes
+      - name: Run Liquibase Update
         run: |
           liquibase \
-            --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=${{ matrix.model.db_name }};encrypt=true;trustServerCertificate=true" \
+            --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=${{ matrix.model_config.db_name }};encrypt=true;trustServerCertificate=true" \
             --username="${{ env.DB_USER }}" \
             --password="${{ env.DB_PASSWORD }}" \
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
             --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
-            --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
+            --changeLogFile="liquibase/changelog/${{ matrix.model_config.model }}/changelog-master.xml" \
             --logLevel=info \
             update
