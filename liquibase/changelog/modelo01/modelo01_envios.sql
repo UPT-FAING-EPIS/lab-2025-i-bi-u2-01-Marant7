@@ -53,4 +53,3 @@ CREATE TABLE Hecho_Envio (
 CREATE INDEX idx_hecho_envio_tiempo ON Hecho_Envio(tiempo_id);
 CREATE INDEX idx_hecho_envio_grupo ON Hecho_Envio(grupo_centro_costo_id);
 CREATE INDEX idx_hecho_envio_destino ON Hecho_Envio(destino_id);
-GO

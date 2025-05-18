@@ -56,4 +56,3 @@ CREATE INDEX idx_hecho_proyecto_cliente ON Hecho_Proyecto(cliente_id);
 CREATE INDEX idx_hecho_proyecto_responsable ON Hecho_Proyecto(responsable_id);
 CREATE INDEX idx_hecho_proyecto_localidad ON Hecho_Proyecto(localidad_id);
 CREATE INDEX idx_hecho_proyecto_proyecto ON Hecho_Proyecto(proyecto_id);
-GO

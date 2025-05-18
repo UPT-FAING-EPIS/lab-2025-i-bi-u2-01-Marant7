@@ -47,4 +47,3 @@ CREATE INDEX idx_hecho_reserva_tiempo ON Hecho_Reserva(tiempo_id);
 CREATE INDEX idx_hecho_reserva_cliente ON Hecho_Reserva(cliente_id);
 CREATE INDEX idx_hecho_reserva_agencia ON Hecho_Reserva(agencia_id);
 CREATE INDEX idx_hecho_reserva_destino ON Hecho_Reserva(destino_id);
-GO
