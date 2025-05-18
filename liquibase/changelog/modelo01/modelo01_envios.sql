@@ -1,41 +1,39 @@
-
-
 -- Dimensión Tiempo
 CREATE TABLE Dim_Tiempo (
-    tiempo_id INT AUTO_INCREMENT PRIMARY KEY,
+    tiempo_id INT IDENTITY(1,1) PRIMARY KEY,
     mes INT NOT NULL,
     año INT NOT NULL
 );
 
 -- Dimensión Grupo Centro de Costos
 CREATE TABLE Dim_GrupoCentroCosto (
-    grupo_centro_costo_id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre_grupo VARCHAR(100) NOT NULL,
-    modo_transporte VARCHAR(50)
+    grupo_centro_costo_id INT IDENTITY(1,1) PRIMARY KEY,
+    nombre_grupo NVARCHAR(100) NOT NULL,
+    modo_transporte NVARCHAR(50)
 );
 
 -- Dimensión Destino
 CREATE TABLE Dim_Destino (
-    destino_id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre_destino VARCHAR(100) NOT NULL,
-    pais VARCHAR(50) NOT NULL
+    destino_id INT IDENTITY(1,1) PRIMARY KEY,
+    nombre_destino NVARCHAR(100) NOT NULL,
+    pais NVARCHAR(50) NOT NULL
 );
 
 -- Dimensión Modo de Transporte
 CREATE TABLE Dim_ModoTransporte (
-    modo_transporte_id INT AUTO_INCREMENT PRIMARY KEY,
-    tipo_transporte VARCHAR(50) NOT NULL
+    modo_transporte_id INT IDENTITY(1,1) PRIMARY KEY,
+    tipo_transporte NVARCHAR(50) NOT NULL
 );
 
 -- Dimensión Grupo de Lote
 CREATE TABLE Dim_GrupoLote (
-    grupo_lote_id INT AUTO_INCREMENT PRIMARY KEY,
-    descripcion_grupo VARCHAR(200) NOT NULL
+    grupo_lote_id INT IDENTITY(1,1) PRIMARY KEY,
+    descripcion_grupo NVARCHAR(200) NOT NULL
 );
 
 -- Tabla de Hechos Envíos
 CREATE TABLE Hecho_Envio (
-    envio_id INT AUTO_INCREMENT PRIMARY KEY,
+    envio_id INT IDENTITY(1,1) PRIMARY KEY,
     tiempo_id INT NOT NULL,
     grupo_centro_costo_id INT NOT NULL,
     destino_id INT NOT NULL,
@@ -55,3 +53,4 @@ CREATE TABLE Hecho_Envio (
 CREATE INDEX idx_hecho_envio_tiempo ON Hecho_Envio(tiempo_id);
 CREATE INDEX idx_hecho_envio_grupo ON Hecho_Envio(grupo_centro_costo_id);
 CREATE INDEX idx_hecho_envio_destino ON Hecho_Envio(destino_id);
+GO
