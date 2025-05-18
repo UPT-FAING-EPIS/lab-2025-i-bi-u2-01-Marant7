@@ -8,9 +8,10 @@ on:
       - '.github/workflows/deployDatabase.yml'
 
 env:
-  DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"  # Ej: 'upt-dbs-shortenurl'
+  DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
   DB_USER: "${{ secrets.SQL_USER }}"
   DB_PASSWORD: "${{ secrets.SQL_PASS }}"
+  LIQUIBASE_VERSION: "4.27.0"  # Versión específica de Liquibase
 
 jobs:
   deploy-dimensional-models:
@@ -30,15 +31,25 @@ jobs:
       - name: Setup Java for Liquibase
         uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
-          java-version: '11'
+          distribution: 'temurin'  # Cambiado a Temurin (mejor soporte)
+          java-version: '17'       # Liquibase 4.x funciona mejor con Java 17
 
-      - name: Install Liquibase
+      - name: Install Liquibase manually
         run: |
-          sudo apt-get update
-          sudo apt-get install -y liquibase
-          wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/11.2.3.jre11/mssql-jdbc-11.2.3.jre11.jar -O /tmp/sqljdbc.jar
+          # Descargar y extraer Liquibase
+          wget https://github.com/liquibase/liquibase/releases/download/v${{ env.LIQUIBASE_VERSION }}/liquibase-${{ env.LIQUIBASE_VERSION }}.tar.gz -O /tmp/liquibase.tar.gz
+          sudo mkdir -p /opt/liquibase
+          sudo tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
+          sudo ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
+          
+          # Descargar driver JDBC para SQL Server (versión actualizada)
+          wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O /tmp/sqljdbc.jar
           echo "LIQUIBASE_CLASSPATH=/tmp/sqljdbc.jar" >> $GITHUB_ENV
+
+      - name: Verify installation
+        run: |
+          liquibase --version
+          ls -la /opt/liquibase
 
       - name: Validate database connection
         run: |
