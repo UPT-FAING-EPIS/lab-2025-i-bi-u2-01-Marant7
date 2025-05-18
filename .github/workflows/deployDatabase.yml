@@ -27,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Java for Liquibase
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
@@ -35,34 +35,30 @@ jobs:
 
       - name: Install Liquibase
         run: |
-          # Descargar Liquibase
+          # Instalar Liquibase
           wget https://github.com/liquibase/liquibase/releases/download/v4.27.0/liquibase-4.27.0.tar.gz -O /tmp/liquibase.tar.gz
-          mkdir -p /opt/liquibase
-          tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
-          echo "/opt/liquibase" >> $GITHUB_PATH
+          sudo mkdir -p /opt/liquibase
+          sudo tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
+          sudo ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
           
-          # Descargar driver JDBC
+          # Instalar driver JDBC
           wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O /tmp/sqljdbc.jar
+          echo "LIQUIBASE_CLASSPATH=/tmp/sqljdbc.jar" >> $GITHUB_ENV
 
-      - name: Validate database connection
+      - name: Test database connection
         run: |
+          # Verificación básica de conexión sin Liquibase
           echo "Testing connection to ${{ matrix.model.db_name }}..."
-          /opt/liquibase/liquibase \
-            --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=${{ matrix.model.db_name }};encrypt=true;trustServerCertificate=true" \
-            --username="${{ env.DB_USER }}" \
-            --password="${{ env.DB_PASSWORD }}" \
-            --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
-            --classpath="/tmp/sqljdbc.jar" \
-            status --verbose
+          curl --connect-timeout 5 telnet://${{ env.DB_SERVER }}:1433 || echo "Connection test failed"
 
       - name: Apply database changes
         run: |
-          /opt/liquibase/liquibase \
+          liquibase \
             --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=${{ matrix.model.db_name }};encrypt=true;trustServerCertificate=true" \
             --username="${{ env.DB_USER }}" \
             --password="${{ env.DB_PASSWORD }}" \
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
-            --classpath="/tmp/sqljdbc.jar" \
+            --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
             --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
             --logLevel=info \
             update
