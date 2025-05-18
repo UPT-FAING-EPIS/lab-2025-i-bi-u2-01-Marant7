@@ -11,7 +11,6 @@ env:
   DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
   DB_USER: "${{ secrets.SQL_USER }}"
   DB_PASSWORD: "${{ secrets.SQL_PASS }}"
-  LIQUIBASE_VERSION: "4.27.0"  # Versión específica de Liquibase
 
 jobs:
   deploy-dimensional-models:
@@ -31,45 +30,39 @@ jobs:
       - name: Setup Java for Liquibase
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'  # Cambiado a Temurin (mejor soporte)
-          java-version: '17'       # Liquibase 4.x funciona mejor con Java 17
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Install Liquibase manually
+      - name: Install Liquibase
         run: |
-          # Descargar y extraer Liquibase
-          wget https://github.com/liquibase/liquibase/releases/download/v${{ env.LIQUIBASE_VERSION }}/liquibase-${{ env.LIQUIBASE_VERSION }}.tar.gz -O /tmp/liquibase.tar.gz
-          sudo mkdir -p /opt/liquibase
-          sudo tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
-          sudo ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
+          # Descargar Liquibase
+          wget https://github.com/liquibase/liquibase/releases/download/v4.27.0/liquibase-4.27.0.tar.gz -O /tmp/liquibase.tar.gz
+          mkdir -p /opt/liquibase
+          tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
+          echo "/opt/liquibase" >> $GITHUB_PATH
           
-          # Descargar driver JDBC para SQL Server (versión actualizada)
+          # Descargar driver JDBC
           wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O /tmp/sqljdbc.jar
-          echo "LIQUIBASE_CLASSPATH=/tmp/sqljdbc.jar" >> $GITHUB_ENV
-
-      - name: Verify installation
-        run: |
-          liquibase --version
-          ls -la /opt/liquibase
 
       - name: Validate database connection
         run: |
           echo "Testing connection to ${{ matrix.model.db_name }}..."
-          liquibase \
+          /opt/liquibase/liquibase \
             --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=${{ matrix.model.db_name }};encrypt=true;trustServerCertificate=true" \
             --username="${{ env.DB_USER }}" \
             --password="${{ env.DB_PASSWORD }}" \
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
-            --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
-            status
+            --classpath="/tmp/sqljdbc.jar" \
+            status --verbose
 
       - name: Apply database changes
         run: |
-          liquibase \
+          /opt/liquibase/liquibase \
             --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=${{ matrix.model.db_name }};encrypt=true;trustServerCertificate=true" \
             --username="${{ env.DB_USER }}" \
             --password="${{ env.DB_PASSWORD }}" \
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
-            --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
+            --classpath="/tmp/sqljdbc.jar" \
             --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
             --logLevel=info \
             update
