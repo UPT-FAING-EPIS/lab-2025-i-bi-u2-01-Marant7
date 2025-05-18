@@ -43,7 +43,7 @@ provider "azurerm" {
 # Create the resource group
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
-  location = "eastwest"
+  location = "westus2"  
 }
 
 resource "azurerm_mssql_server" "sqlsrv" {
