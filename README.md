@@ -40,6 +40,42 @@ al almacén de datos. El análisis tendrá lugar a nivel del grupo de centros de
 centros de costos. 
 Por favor identifique el hecho de interés y construya el Modelo Dimensional y su respectivo diagrama físico
 
+**Hecho de interés:**  
+Envío de mercancías (medidas: costo total, peso del lote, cantidad de lotes).
+
+**Modelo Dimensional:**
+
+#### Tabla de Hechos:
+- **Hecho_Envío**  
+  - `tiempo_id` (FK) → Dim_Tiempo  
+  - `grupo_centro_costo_id` (FK) → Dim_GrupoCentroCosto  
+  - `destino_id` (FK) → Dim_Destino  
+  - `modo_transporte_id` (FK) → Dim_ModoTransporte  
+  - `grupo_lote_id` (FK) → Dim_GrupoLote  
+  - `costo_total`  
+  - `peso_total`  
+  - `cantidad_lotes`  
+
+#### Dimensiones:
+- **Dim_Tiempo**  
+  - `mes`  
+  - `año`  
+
+- **Dim_GrupoCentroCosto**  
+  - `nombre_grupo`  
+  - `modo_transporte`  
+
+- **Dim_Destino**  
+  - `nombre_destino`  
+  - `país`  
+
+- **Dim_ModoTransporte**  
+  - `tipo_transporte`  
+
+- **Dim_GrupoLote**  
+  - `descripción_grupo`  
+
+
 
 ### Ejercicio N° 02: Reservas de viaje 
 
@@ -50,6 +86,38 @@ La dimensión de tiempo consiste en mes, trimestre y año.
 ![image](assets/329793731-2de3ed8a-1280-4f5e-af20-6e2efef8f89e.png)
 
 Por favor identifique el hecho de interés y construya el Modelo Dimensional y su respectivo esquema físico
+
+**Hecho de interés:**  
+Reserva de viaje (medidas: costo de reserva, cantidad de reservas).
+
+**Modelo Dimensional:**
+
+#### Tabla de Hechos:
+- **Hecho_Reserva**  
+  - `tiempo_id` (FK) → Dim_Tiempo  
+  - `cliente_id` (FK) → Dim_Cliente  
+  - `agencia_id` (FK) → Dim_Agencia  
+  - `destino_id` (FK) → Dim_Destino  
+  - `costo_reserva`  
+  - `cantidad_reservas`  
+
+#### Dimensiones:
+- **Dim_Tiempo**  
+  - `mes`  
+  - `trimestre`  
+  - `año`  
+
+- **Dim_Cliente**  
+  - `tipo_cliente`  
+  - `dirección`  
+
+- **Dim_Agencia**  
+  - `nombre_agencia`  
+  - `operador_turístico`  
+
+- **Dim_Destino**  
+  - `nombre_destino`  
+  - `país`  
 
 
 ### Ejercicio N° 03: Gestión de proyectos 
@@ -63,6 +131,43 @@ La dimensión de tiempo consiste de día, mes y año
 
 Por favor identifique el hecho de interés y construya el Modelo Dimensional. Incluya un atributo de hecho adicional que 
 cuente la cantidad de paquetes de trabajo. Asimismo, realice el diagrama físico
+
+**Hecho de interés:**  
+Ejecución del proyecto (medidas: costo total, duración, cantidad de paquetes de trabajo).
+
+**Modelo Dimensional:**
+
+#### Tabla de Hechos:
+- **Hecho_Proyecto**  
+  - `tiempo_id` (FK) → Dim_Tiempo  
+  - `cliente_id` (FK) → Dim_Cliente  
+  - `responsable_id` (FK) → Dim_Responsable  
+  - `localidad_id` (FK) → Dim_Localidad  
+  - `proyecto_id` (FK) → Dim_Proyecto  
+  - `costo_total`  
+  - `duración_días`  
+  - `cantidad_paquetes`  
+
+#### Dimensiones:
+- **Dim_Tiempo**  
+  - `día`  
+  - `mes`  
+  - `año`  
+
+- **Dim_Cliente**  
+  - `nombre_cliente`  
+
+- **Dim_Responsable**  
+  - `nombre_responsable`  
+  - `teléfono`  
+
+- **Dim_Localidad**  
+  - `nombre_localidad`  
+  - `país`  
+
+- **Dim_Proyecto**  
+  - `nombre_proyecto` 
+
 
     
 ## ACTIVIDAD ENCARGADA
