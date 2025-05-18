@@ -9,7 +9,7 @@ on:
 
 env:
   DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
-  DB_USER: "${{ secrets.SQL_USER }}"
+  DB_USER: "${{ secrets.SQL_USER }}@${{ secrets.AZURE_SQL_SERVER }}"  # Añade el nombre del servidor al usuario
   DB_PASSWORD: "${{ secrets.SQL_PASS }}"
 
 jobs:
@@ -27,33 +27,49 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Java for Liquibase
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Liquibase
+      - name: Install Liquibase and SQL Server driver
         run: |
-          # Descargar Liquibase
+          # Instalar Liquibase
           wget https://github.com/liquibase/liquibase/releases/download/v4.27.0/liquibase-4.27.0.tar.gz -O /tmp/liquibase.tar.gz
-          mkdir -p /opt/liquibase
-          tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
-          echo "/opt/liquibase" >> $GITHUB_PATH
+          sudo mkdir -p /opt/liquibase
+          sudo tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
+          sudo ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
           
-          # Descargar driver JDBC
+          # Instalar driver JDBC
           wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O /tmp/sqljdbc.jar
+          echo "LIQUIBASE_CLASSPATH=/tmp/sqljdbc.jar" >> $GITHUB_ENV
 
-      - name: Validate database connection
+      - name: Verify database exists
         run: |
-          echo "Testing connection to ${{ matrix.model.db_name }}..."
+          # Conectar a la base de datos master para verificar si existe la BD
           /opt/liquibase/liquibase \
-            --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=${{ matrix.model.db_name }};encrypt=true;trustServerCertificate=true" \
+            --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=master;encrypt=true;trustServerCertificate=true" \
             --username="${{ env.DB_USER }}" \
             --password="${{ env.DB_PASSWORD }}" \
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
-            --classpath="/tmp/sqljdbc.jar" \
-            status --verbose
+            --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
+            --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
+            --logLevel=info \
+            run-sql "IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${{ matrix.model.db_name }}') CREATE DATABASE ${{ matrix.model.db_name }};"
+
+      - name: Grant user permissions
+        run: |
+          # Otorgar permisos al usuario en la BD
+          /opt/liquibase/liquibase \
+            --url="jdbc:sqlserver://${{ env.DB_SERVER }}:1433;database=master;encrypt=true;trustServerCertificate=true" \
+            --username="${{ env.DB_USER }}" \
+            --password="${{ env.DB_PASSWORD }}" \
+            --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
+            --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
+            --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
+            --logLevel=info \
+            run-sql "USE [${{ matrix.model.db_name }}]; CREATE USER [${{ secrets.SQL_USER }}] FROM LOGIN [${{ secrets.SQL_USER }}]; ALTER ROLE db_owner ADD MEMBER [${{ secrets.SQL_USER }}];"
 
       - name: Apply database changes
         run: |
@@ -62,7 +78,7 @@ jobs:
             --username="${{ env.DB_USER }}" \
             --password="${{ env.DB_PASSWORD }}" \
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
-            --classpath="/tmp/sqljdbc.jar" \
+            --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
             --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
-            --logLevel=info \
+            --logLevel=debug \
             update
