@@ -9,9 +9,9 @@ on:
 
 env:
   DB_SERVER: "${{ secrets.AZURE_SQL_SERVER }}.database.windows.net"
-  DB_USER: "${{ secrets.AZURE_SQL_USER }}"
-  DB_PASSWORD: "${{ secrets.AZURE_SQL_PASSWORD }}"
-  LIQUIBASE_VERSION: "4.27.0"
+  DB_USER: "${{ secrets.SQL_USER }}"
+  DB_PASSWORD: "${{ secrets.SQL_PASS }}"
+  LIQUIBASE_CLASSPATH: /tmp/sqljdbc.jar
 
 jobs:
   deploy-dimensional-models:
@@ -20,9 +20,10 @@ jobs:
     strategy:
       matrix:
         model:
-          - { folder: 'modelo01', db_name: 'dw_envios', sql_file: 'modelo01_envios.sql' }
-          - { folder: 'modelo02', db_name: 'dw_reservas_viaje', sql_file: 'modelo02_reservas.sql' }
-          - { folder: 'modelo03', db_name: 'dw_gestion_proyectos', sql_file: 'modelo03_proyectos.sql' }
+          - { folder: 'modelo01', db_name: 'shorten', changelog: 'changelog/modelo01/changelog-master.xml' }
+          # Add other models if their databases exist
+          # - { folder: 'modelo02', db_name: 'dw_reservas_viaje', changelog: 'changelog/modelo02/changelog-master.xml' }
+          # - { folder: 'modelo03', db_name: 'dw_gestion_proyectos', changelog: 'changelog/modelo03/changelog-master.xml' }
     
     steps:
       - name: Checkout repository
@@ -34,22 +35,31 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Liquibase manually
+      - name: Install Liquibase and SQL tools
         run: |
-          # Descargar y extraer Liquibase
-          wget https://github.com/liquibase/liquibase/releases/download/v${{ env.LIQUIBASE_VERSION }}/liquibase-${{ env.LIQUIBASE_VERSION }}.tar.gz -O /tmp/liquibase.tar.gz
+          # Install Liquibase
+          wget https://github.com/liquibase/liquibase/releases/download/v4.27.0/liquibase-4.27.0.tar.gz -O /tmp/liquibase.tar.gz
           sudo mkdir -p /opt/liquibase
           sudo tar -xzf /tmp/liquibase.tar.gz -C /opt/liquibase
           sudo ln -s /opt/liquibase/liquibase /usr/local/bin/liquibase
           
-          # Descargar driver JDBC para SQL Server
-          wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O /tmp/sqljdbc.jar
-          echo "LIQUIBASE_CLASSPATH=/tmp/sqljdbc.jar" >> $GITHUB_ENV
+          # Install SQL Server tools
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+          sudo apt-get update 
+          sudo apt-get install -y mssql-tools unixodbc-dev
+          echo 'export PATH="$PATH:/opt/mssql-tools/bin"' >> ~/.bashrc
+          source ~/.bashrc
+          
+          # Download JDBC driver
+          wget https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.4.2.jre11/mssql-jdbc-12.4.2.jre11.jar -O ${{ env.LIQUIBASE_CLASSPATH }}
 
-      - name: Verify Liquibase installation
+      - name: Verify database exists
         run: |
-          liquibase --version
-          ls -la /opt/liquibase
+          if ! sqlcmd -S "${{ env.DB_SERVER }}" -U "${{ env.DB_USER }}" -P "${{ env.DB_PASSWORD }}" -Q "SELECT name FROM master.dbo.sysdatabases WHERE name = '${{ matrix.model.db_name }}'" | grep -q "${{ matrix.model.db_name }}"; then
+            echo "Database ${{ matrix.model.db_name }} does not exist!"
+            exit 1
+          fi
 
       - name: Apply database changes
         run: |
@@ -59,6 +69,6 @@ jobs:
             --password="${{ env.DB_PASSWORD }}" \
             --driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" \
             --classpath="${{ env.LIQUIBASE_CLASSPATH }}" \
-            --changeLogFile="liquibase/changelog/${{ matrix.model.folder }}/changelog-master.xml" \
-            --logLevel=info \
+            --changeLogFile="liquibase/${{ matrix.model.changelog }}" \
+            --logLevel=debug \
             update
